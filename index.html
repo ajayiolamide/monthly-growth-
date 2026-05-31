@@ -169,7 +169,7 @@ textarea{resize:vertical;line-height:1.5;min-height:56px}
     <div class="auth-field"><label for="setup-pin">Set a PIN</label><input type="password" id="setup-pin" placeholder="Min 4 characters" autocomplete="new-password"></div>
     <div class="auth-field"><label for="setup-pin2">Confirm PIN</label><input type="password" id="setup-pin2" placeholder="Type it again" autocomplete="new-password"></div>
     <div class="auth-err" id="setup-err" role="alert"></div>
-    <button class="auth-btn" id="setup-submit">Create account &amp; enter &#8594;</button>
+    <button class="auth-btn" id="setup-submit" onclick="doSetup()">Create account &amp; enter &#8594;</button>
     <div class="auth-note">All data stays in your browser.</div>
   </div></div>
   <div id="auth-login" style="display:none"><div class="auth-box">
@@ -178,7 +178,7 @@ textarea{resize:vertical;line-height:1.5;min-height:56px}
     <div class="auth-field"><label for="login-name">Your name</label><input type="text" id="login-name" placeholder="e.g. Ajayi Ibrahim" autocomplete="username"></div>
     <div class="auth-field"><label for="login-pin">PIN</label><input type="password" id="login-pin" placeholder="Your PIN" autocomplete="current-password"></div>
     <div class="auth-err" id="login-err" role="alert"></div>
-    <button class="auth-btn" id="login-submit">Sign in &#8594;</button>
+    <button class="auth-btn" id="login-submit" onclick="doLogin()">Sign in &#8594;</button>
     <div style="text-align:center;margin-top:4px">
       <button onclick="resetAuth()" style="font-size:11px;color:rgba(255,255,255,.4);background:none;border:none;cursor:pointer;text-decoration:underline;font-family:inherit">Reset &amp; start fresh</button>
     </div>
@@ -506,7 +506,7 @@ textarea{resize:vertical;line-height:1.5;min-height:56px}
 <aside class="preview-panel" aria-label="Slide preview">
   <div class="pv-head"><h3>Live Preview</h3><div class="pv-nav"><button id="pv-prev">&#8592;</button><button id="pv-next">&#8594;</button></div></div>
   <div id="pv-slide-lbl" class="pv-lbl" aria-live="polite">Slide 1 / 11</div>
-  <div class="pv-frame"><iframe id="pv-frame" title="Slide preview" sandbox="allow-same-origin allow-scripts"></iframe></div>
+  <div class="pv-frame"><iframe id="pv-frame" title="Slide preview" sandbox="allow-scripts"></iframe></div>
   <div class="pv-thumbs" role="tablist">
     <div class="pv-thumb active" data-slide="0" role="tab" tabindex="0"><span>Cover</span></div><div class="pv-thumb" data-slide="1" role="tab" tabindex="0"><span>Metrics</span></div><div class="pv-thumb" data-slide="2" role="tab" tabindex="0"><span>Growth</span></div><div class="pv-thumb" data-slide="3" role="tab" tabindex="0"><span>CSAT</span></div><div class="pv-thumb" data-slide="4" role="tab" tabindex="0"><span>Revenue</span></div><div class="pv-thumb" data-slide="5" role="tab" tabindex="0"><span>Claims</span></div><div class="pv-thumb" data-slide="6" role="tab" tabindex="0"><span>Insights</span></div><div class="pv-thumb" data-slide="7" role="tab" tabindex="0"><span>Actions</span></div><div class="pv-thumb" data-slide="8" role="tab" tabindex="0"><span>Risks</span></div><div class="pv-thumb" data-slide="9" role="tab" tabindex="0"><span>Back</span></div><div class="pv-thumb" data-slide="10" role="tab" tabindex="0"><span>Appendix</span></div>
   </div>
@@ -1742,6 +1742,10 @@ function resetSlideOrder(){
 }
 
 function initAuthKeys(){
+  var ss=document.getElementById('setup-submit');
+  if(ss&&!ss.onclick)ss.addEventListener('click',doSetup);
+  var ls=document.getElementById('login-submit');
+  if(ls&&!ls.onclick)ls.addEventListener('click',doLogin);
   ['setup-name','setup-pin','setup-pin2'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.addEventListener('keydown', function(e){ if(e.key==='Enter') doSetup(); });
