@@ -792,7 +792,7 @@ function loadSettings(){
     set('bc-title',d.bcTitle);set('bc-bg',d.bcBg);set('bc-sub',d.bcSub);set('bc-contact',d.bcContact);
     set('sheet-url',d.sheetUrl);set('slack-url',d.slackUrl);set('email-to',d.emailTo);
     if(d.template)setTemplate(d.template);
-    if(d.logo){S.logo=d.logo;document.getElementById('logo-zone').innerHTML='<img src="'+d.logo+'" style="max-height:50px;max-width:150px;object-fit:contain">';}
+    if(d.logo&&d.logo.length>10){S.logo=d.logo;document.getElementById('logo-zone').innerHTML='<img src="'+d.logo+'" style="max-height:50px;max-width:150px;object-fit:contain">';}
     if(d.metrics&&d.metrics.length)S.metrics=d.metrics;
     if(d.insights&&d.insights.length)S.insights=d.insights;
     if(d.actions&&d.actions.length)S.actions=d.actions;
@@ -1788,7 +1788,7 @@ function bfz(n){ return Math.round(n * bodyFont.size) + 'px'; }
 // Falls back: logoLight uses logoDark if not set
 
 function getLogoDark()  { return S.logoDark  || S.logo || null; }
-function getLogoLight() { return S.logoLight || S.logo || null; }
+function getLogoLight() { var l=S.logoLight||S.logo||null; return l&&l.length>10?l:null; }
 
 function logoTagDk(alt){
   var l = getLogoDark();
@@ -2231,7 +2231,7 @@ async function generatePDF(){
     await loadLib('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
     await loadLib('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
   }catch(e){
-    toast('Could not load PDF libraries. Check your internet connection.');
+    toast('Could not load PDF libraries. Check your connection.');
     btn.disabled=false;btn.textContent='\u2B07 Download as PDF';
     if(prog)prog.style.display='none';
     return;
@@ -2242,81 +2242,153 @@ async function generatePDF(){
   const builders=buildAllSlides();
 
   const {jsPDF}=window.jspdf;
+  const PW=297,PH=210,IW=PW,IH=PW*630/1120,IY=(PH-IH)/2;
   const pdf=new jsPDF({orientation:'landscape',format:'a4',unit:'mm',compress:true});
-  // A4 landscape: 297 x 210mm. Slides 16:9 so height = 297*(630/1120)=166.9
-  const PW=297,PH=210,IW=297,IH=297*(630/1120),IY=(PH-IH)/2;
 
   for(var i=0;i<builders.length;i++){
     if(pstatus)pstatus.textContent='Rendering slide '+(i+1)+' of '+builders.length+'...';
     if(bar)bar.style.width=(8+i/builders.length*85)+'%';
 
-    const slideHtml=getDeckHead(c,t,'s'+(i+1))+builders[i]()+'<style>body{background:'+(t===2?'#fff':'#111')+';padding:0;gap:0;align-items:flex-start;min-height:auto}.slide{border-radius:0!important;}</style></body></html>';
+    const slideHtml=getDeckHead(c,t,'s'+(i+1))+builders[i]()+
+      '<style>body{background:'+(t===2?'#fff':'#111')+';margin:0;padding:0;overflow:hidden}'+
+      '.slide{border-radius:0!important;position:relative;width:1120px;height:630px;overflow:hidden}</style>'+
+      '</body></html>';
 
-    // Create an off-screen container
-    var container=document.createElement('div');
-    container.style.cssText='position:fixed;left:-2000px;top:0;width:1120px;height:630px;overflow:hidden;z-index:-999;';
+    // Render in a visible but clipped container for better font rendering
+    var wrapper=document.createElement('div');
+    wrapper.style.cssText='position:fixed;top:0;left:0;width:1120px;height:630px;overflow:hidden;z-index:99998;opacity:0;pointer-events:none;';
     var iframe=document.createElement('iframe');
     iframe.style.cssText='width:1120px;height:630px;border:none;';
-    container.appendChild(iframe);
-    document.body.appendChild(container);
-
-    // Load slide into iframe
-    iframe.srcdoc=slideHtml;
-    await new Promise(function(resolve){
-      var attempts=0;
-      var check=setInterval(function(){
-        attempts++;
-        if(iframe.contentDocument&&iframe.contentDocument.readyState==='complete'){
-          clearInterval(check);
-          // Wait extra time for fonts to paint
-          setTimeout(resolve,800);
-        } else if(attempts>30){clearInterval(check);setTimeout(resolve,200);}
-      },100);
-    });
+    wrapper.appendChild(iframe);
+    document.body.appendChild(wrapper);
 
     try{
-      var canvas=await html2canvas(iframe.contentDocument.documentElement,{
-        width:1120,height:630,scale:3,
-        useCORS:true,allowTaint:true,logging:false,imageTimeout:0,
-        backgroundColor:t===2?'#ffffff':'#111111'
-      });
-      if(i>0)pdf.addPage([PW,PH],'landscape');
-      var imgData=canvas.toDataURL('image/png');
-      pdf.addImage(imgData,'PNG',0,IY,IW,IH);
-    }catch(err){console.warn('Slide '+(i+1)+' render error:',err);}
+      iframe.srcdoc=slideHtml;
 
-    document.body.removeChild(container);
+      // Wait for full render + fonts
+      await new Promise(function(resolve){
+        var t0=Date.now();
+        var check=setInterval(function(){
+          var ready=iframe.contentDocument&&iframe.contentDocument.readyState==='complete';
+          var elapsed=Date.now()-t0;
+          if(ready&&elapsed>600){clearInterval(check);resolve();}
+          else if(elapsed>4000){clearInterval(check);resolve();}
+        },100);
+      });
+
+      // Additional font stabilisation delay
+      await new Promise(function(r){setTimeout(r,500);});
+
+      var canvas=await html2canvas(iframe.contentDocument.documentElement,{
+        width:1120,height:630,
+        scale:2,
+        useCORS:true,
+        allowTaint:true,
+        logging:false,
+        imageTimeout:15000,
+        windowWidth:1120,
+        windowHeight:630,
+        backgroundColor:t===2?'#ffffff':'#111111',
+        onclone:function(doc){
+          // Force all fonts to their computed values
+          doc.querySelectorAll('*').forEach(function(el){
+            el.style.fontFamily=window.getComputedStyle(el).fontFamily||'';
+          });
+        }
+      });
+
+      if(i>0)pdf.addPage([PW,PH],'landscape');
+      // Use JPEG at 97% for better balance of quality and file size
+      var imgData=canvas.toDataURL('image/jpeg',0.97);
+      pdf.addImage(imgData,'JPEG',0,IY,IW,IH,undefined,'FAST');
+    }catch(err){
+      console.warn('Slide '+(i+1)+' error:',err);
+    }
+    document.body.removeChild(wrapper);
   }
 
   if(bar)bar.style.width='100%';
   if(pstatus)pstatus.textContent='Saving PDF...';
+  await new Promise(function(r){setTimeout(r,200);});
 
-  var fn=co.replace(/\s+/g,'_')+'_Growth_Metrics_'+month+'_'+year+'.pdf';
+  var fn=(co.replace(/\s+/g,'_'))+'_Growth_Metrics_'+month+'_'+year+'.pdf';
   pdf.save(fn);
-  saveReport();
 
-  setTimeout(function(){
-    btn.disabled=false;btn.textContent='\u2B07 Download as PDF';
-    if(prog)prog.style.display='none';
-    toast('PDF saved! \u2014 '+fn);
-  },600);
+  toast('\u2713 PDF saved: '+fn);
+  btn.disabled=false;btn.textContent='\u2B07 Download as PDF';
+  if(prog)prog.style.display='none';
 }
 
 // ═══════ EXPORT & SLACK ═══════
 async function sendSlack(){
-  const url=v('slack-url').trim();
-  if(!url){alert('Enter your Slack webhook URL first.');return;}
-  const btn=document.getElementById('slack-btn');const status=document.getElementById('slack-status');
-  btn.disabled=true;btn.textContent='Sending...';
-  const co=v('s-company')||'MyCoverGenius',month=v('s-month')||'May',year=v('s-year')||'2026';
-  const se={on:'\u2705',off:'\ud83d\udea8',watch:'\u26a0\ufe0f'};
-  const text=S.metrics.map(function(m){return(se[m.status]||'\u2022')+' *'+m.label+':* '+m.value+' ('+m.delta+') \u2014 T: '+m.target;}).join('\n');
+  var url=v('slack-url').trim();
+  if(!url){alert('Paste your Slack webhook URL.\n\nGet one:\nSlack \u2192 Apps \u2192 Incoming WebHooks \u2192 Add to Slack \u2192 choose channel \u2192 copy URL');return;}
+  if(!url.startsWith('https://hooks.slack.com/')){alert('That doesn\u2019t look right.\nSlack webhook URLs start with:\nhttps://hooks.slack.com/services/');return;}
+
+  var btn=document.getElementById('slack-btn');
+  var status=document.getElementById('slack-status');
+  btn.disabled=true;btn.textContent='Sending\u2026';
+
+  var co=v('s-company')||'MyCoverGenius';
+  var month=v('s-month')||'May';
+  var year=v('s-year')||'2026';
+  var preparer=v('s-preparer')||'Product Team';
+  var customMsg=v('slack-msg')||'';
+
+  var onN   =S.metrics.filter(function(m){return m.status==='on';}).length;
+  var offN  =S.metrics.filter(function(m){return m.status==='off';}).length;
+  var watchN=S.metrics.filter(function(m){return m.status==='watch';}).length;
+
+  // Build metric rows — 2 columns
+  var metricLines=S.metrics.slice(0,12).map(function(m){
+    var icon=m.status==='on'?'\u2705':m.status==='off'?'\ud83d\udea8':'\u26a0\ufe0f';
+    var delta=m.delta&&m.delta!=='-'?' _'+m.delta+'_':'';
+    return icon+' *'+m.label+':* '+m.value+delta;
+  }).join('\n');
+
+  var blocks=[
+    {type:'header',text:{type:'plain_text',text:'\ud83d\udcca '+co+' Growth Report \u00b7 '+month+' '+year,emoji:true}},
+    {type:'context',elements:[{type:'mrkdwn',text:'Prepared by *'+preparer+'*'}]},
+    {type:'divider'}
+  ];
+
+  if(customMsg){
+    blocks.push({type:'section',text:{type:'mrkdwn',text:customMsg}});
+    blocks.push({type:'divider'});
+  }
+
+  blocks.push({
+    type:'section',
+    fields:[
+      {type:'mrkdwn',text:'*\u2705 On Track*\n'+onN+' metric'+(onN===1?'':'s')},
+      {type:'mrkdwn',text:'*\u26a0\ufe0f Watch*\n'+watchN+' metric'+(watchN===1?'':'s')},
+      {type:'mrkdwn',text:'*\ud83d\udea8 Off Track*\n'+offN+' metric'+(offN===1?'':'s')}
+    ]
+  });
+
+  blocks.push({type:'divider'});
+
+  if(metricLines){
+    blocks.push({type:'section',text:{type:'mrkdwn',text:metricLines}});
+  }
+
+  blocks.push({
+    type:'context',
+    elements:[{type:'mrkdwn',text:'\ud83d\udce6 Generated by Growth Metrics Builder \u00b7 '+month+' '+year}]
+  });
+
+  var payload={username:'Growth Metrics \u00b7 '+co,icon_emoji:':bar_chart:',blocks:blocks};
+
   try{
-    await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify({username:'Growth Metrics Bot',icon_emoji:':bar_chart:',text:'\ud83d\udcca *'+co+' \u2014 Growth Metrics \u00b7 '+month+' '+year+'*\n\n'+text})});
+    fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
+    await new Promise(function(r){setTimeout(r,900);});
     btn.textContent='\u2713 Sent!';btn.style.background='#059669';
-    if(status){status.style.display='';status.textContent='Successfully sent to Slack!';}
-    setTimeout(function(){btn.disabled=false;btn.textContent='\ud83d\udcac Send to Slack';btn.style.background='';},3000);
-  }catch(e){btn.disabled=false;btn.textContent='Failed';if(status){status.style.display='';status.textContent='Error: '+e.message;}}
+    if(status){status.style.display='';status.textContent='\u2713 Posted to Slack \u2014 check your channel!';}
+    setTimeout(function(){btn.disabled=false;btn.textContent='\ud83d\udcac Send to Slack';btn.style.background='';},3500);
+  }catch(e){
+    btn.disabled=false;btn.textContent='Failed \u2014 try again';
+    if(status){status.style.display='';status.textContent='Error: '+e.message;}
+  }
 }
 
 function sendEmail(){
