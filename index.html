@@ -513,7 +513,8 @@ textarea{resize:vertical;line-height:1.5;min-height:56px}
 </aside>
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script>
+<script>var _deckTotal=11;
+
 // Global error catcher — shows uncaught errors visibly
 if(window.addEventListener)window.addEventListener('error', function(e){
   var bar = document.getElementById('js-error-bar');
@@ -1302,7 +1303,7 @@ function mkFt(n,tot,dk,slideKey){
     if(parts.length) left='<div style="font-family:DM Mono,monospace;font-size:8px;display:flex;gap:10px;align-items:center">'+parts.join('')+'</div>';
   }
   return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;position:absolute;bottom:14px;left:0;right:0;display:flex;justify-content:space-between;align-items:center;padding:0 40px;z-index:10;pointer-events:none">'+
-    left+'<span style="font-family:DM Mono,monospace;font-size:9px;color:'+tc+'">'+String(n).padStart(2,'0')+' / '+String(tot).padStart(2,'0')+'</span></div>';
+    left+'<span style="font-family:DM Mono,monospace;font-size:9px;color:'+tc+'">'+String(n).padStart(2,'0')+' / '+String(typeof _deckTotal!=='undefined'?_deckTotal:tot).padStart(2,'0')+'</span></div>';
 }
 
 // ── Header bar (Template 2) ──
@@ -1643,12 +1644,13 @@ function sldBackCover(month,year,c,tmpl){
 }
 
 function sldAppendix(month,year,c,tmpl){
+  var safeMetrics=Array.isArray(safeMetrics)?safeMetrics:[];
   var T=getTmpl(tmpl,c); var f=gFC(); var sc=getSC(c); var sl=getSL(); var dc=T.isDark?getDC(1):getDC(2);
   var hdr=T.hasHdr?mkHdr('',month,year,c,S.logo):'';
   var thSt=T.isDark?
     'text-align:left;padding:7px 10px;font-family:DM Mono,monospace;font-size:9px;color:'+T.txt3+';letter-spacing:.1em;text-transform:uppercase;border-bottom:0.5px solid rgba(255,255,255,.08)':
     'text-align:left;padding:7px 10px;font-size:10px;font-weight:600;color:#71717A;text-transform:uppercase;letter-spacing:.06em;border-bottom:2px solid rgba(0,0,0,.08)';
-  var mRows=S.metrics.map(function(m){
+  var mRows=safeMetrics.map(function(m){
     var bdr=T.isDark?'rgba(255,255,255,.05)':'rgba(0,0,0,.06)';
     return '<tr><td style="padding:8px 10px;font-size:11px;color:'+T.txt2+';border-bottom:1px solid '+bdr+'">'+m.label+'</td>'+
       '<td style="padding:8px 10px;font-family:'+f.h+';font-size:14px;font-weight:'+f.hw+';color:'+T.txt1+';border-bottom:1px solid '+bdr+'">'+m.value+'</td>'+
@@ -1688,19 +1690,23 @@ function buildAllSlides(){
   var co=v('s-company')||'MyCoverGenius',month=v('s-month')||'May',year=v('s-year')||'2026';
   var tagline=v('s-tagline')||'Protecting What Matters Most',preparer=v('s-preparer')||'Product Team';
   var c=getC(),t=selectedTemplate;
-  return [
-    function(){return sldCover(co,month,year,tagline,preparer,c,t,S.logo);},
-    function(){return sldMetrics(month,year,c,t);},
-    function(){return sldGrowth(month,year,c,t);},
-    function(){return sldCSAT(month,year,c,t);},
-    function(){return sldRevenue(month,year,c,t);},
-    function(){return sldClaims(month,year,c,t);},
-    function(){return sldInsights(month,year,c,t);},
-    function(){return sldActions(month,year,c,t);},
-    function(){return sldRisks(month,year,c,t);},
-    function(){return sldBackCover(month,year,c,t);},
-    function(){return sldAppendix(month,year,c,t);}
-  ];
+  var allSlides={
+    cover:    function(){return sldCover(co,month,year,tagline,preparer,c,t,S.logo);},
+    metrics:  function(){return sldMetrics(month,year,c,t);},
+    growth:   function(){return sldGrowth(month,year,c,t);},
+    csat:     function(){return sldCSAT(month,year,c,t);},
+    revenue:  function(){return sldRevenue(month,year,c,t);},
+    claims:   function(){return sldClaims(month,year,c,t);},
+    insights: function(){return sldInsights(month,year,c,t);},
+    actions:  function(){return sldActions(month,year,c,t);},
+    risks:    function(){return sldRisks(month,year,c,t);},
+    back:     function(){return sldBackCover(month,year,c,t);},
+    appendix: function(){return sldAppendix(month,year,c,t);}
+  };
+  // Respect user-defined order and hide toggles
+  var visible=slideOrder.filter(function(key){return!(slideOverrides[key]&&slideOverrides[key].hide);});
+  _deckTotal=visible.length;
+  return visible.map(function(key){return allSlides[key]||allSlides.cover;});
 }
 
 function generateDeck(){
@@ -2626,6 +2632,18 @@ function changeMyPin(){
   document.getElementById('pin-current').value='';
   document.getElementById('pin-new').value='';
 }
-</script>
+
+function resetAuth(){
+  if(!confirm('This will clear all saved settings, users, and data. Are you sure?'))return;
+  localStorage.clear();
+  location.reload();
+}
+function applySlideOv(slideHtml, key){
+  var ov=getSO(key); if(!ov)return slideHtml;
+  if(ov.bg)    slideHtml=slideHtml.replace(/background-color:[^;]+;/g,'background-color:'+ov.bg+';');
+  if(ov.bgImg) slideHtml=slideHtml.replace('</body>','<style>body,#slide-bg{background-image:url('+ov.bgImg+')!important;background-size:cover!important;background-position:center!important;}</style></body>');
+  if(ov.txt1)  slideHtml=slideHtml.replace(/color:#(fff|ffffff|FFFFFF)/g,'color:'+ov.txt1);
+  return slideHtml;
+}</script>
 </body>
 </html>
