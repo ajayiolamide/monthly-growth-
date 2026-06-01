@@ -1390,7 +1390,7 @@ function sldMetrics(month,year,c,tmpl){
       '<td style="padding:9px 10px;font-size:11px;font-weight:600;color:'+dc(m.delta)+';border-bottom:1px solid '+bdr+'">'+m.delta+'</td>'+
       '<td style="padding:9px 10px;border-bottom:1px solid '+bdr+'">'+sBadge(m.status,c.teal,T.isDark)+'</td></tr>';
   }).join('');
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+T.bg+';padding:40px 48px;display:flex;flex-direction:column;gap:14px;position:relative">'+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+T.bg+';padding:40px 48px;display:flex;flex-direction:column;gap:14px;position:relative">'+mkLogoOverlay(true)+''+
     hdr+'<div style="'+mt+'display:flex;justify-content:space-between;align-items:flex-end">'+
       '<div><div style="font-family:DM Mono,monospace;font-size:9px;color:'+T.monoC+';letter-spacing:.12em;text-transform:uppercase">Metrics Dashboard</div>'+
         '<div style="font-family:'+f.h+';font-size:'+fz(20)+';font-weight:'+f.hw+';color:'+T.txt1+';margin-top:5px">'+month+' '+year+' \u2014 All KPIs</div></div>'+
@@ -1419,7 +1419,7 @@ function sldGrowth(month,year,c,tmpl){
   }).join('');
   if(T.hasHdr){
     var gMs=S.metrics.filter(function(m){return['nsm','activation','policies'].some(function(k){return m.label.toLowerCase().includes(k);});});
-    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:260px 1fr;position:relative">'+hdr+
+    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:260px 1fr;position:relative">'+mkLogoOverlay(true)+''+hdr+
       '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+c.teal+';margin-top:52px;padding:32px 28px;display:flex;flex-direction:column;justify-content:space-between">'+
         '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.12em;text-transform:uppercase;font-family:DM Mono,monospace">Policy Growth</div>'+
         '<div><div style="font-family:'+f.h+';font-size:'+fz(60)+';font-weight:'+f.hw+';color:#fff;line-height:.85;letter-spacing:-.04em">'+mp.value+'</div>'+
@@ -1451,15 +1451,20 @@ function sldCSAT(month,year,c,tmpl){
   _curSlideKey='csat';var safeMetrics=Array.isArray(S.metrics)?S.metrics:[];
   var safeMetrics=Array.isArray(S.metrics)?S.metrics:[];
   var T=getTmpl(tmpl,c); var f=gFC(); var sc=getSC(c);
-  var mc=getGM('csat'); var hdr=T.hasHdr?mkHdr('',month,year,c,S.logo):'';
-  var csatMs=S.metrics.filter(function(m){var l=m.label.toLowerCase();return l.includes('hospital')||l.includes('patient')||(l.includes('nps')&&!l.includes('claim'));});
+    // Try multiple label patterns for the hospital CSAT score
+  var mc=getGM('hospital csat')||getGM('hospital visit csat')||getGM('csat score')||getGM('csat');
+  // If mc.value is still blank/dash, pull from csatMs
+  var csatMs0=safeMetrics.filter(function(m){var l=m.label.toLowerCase();return l.includes('hospital')||l.includes('patient')||(l.includes('nps')&&!l.includes('claim'));});
+  if((!mc.value||mc.value==='—'||mc.value==='-')&&csatMs0.length)mc=csatMs0[0];
+  var hdr=T.hasHdr?mkHdr('',month,year,c,S.logo):'';
+  var csatMs=csatMs0; // already computed above
   var expCards=csatMs.map(function(m){return mkCard(m,c,T.hasHdr);}).join('');
   // FIXED: 72px max - prevents black box rendering bug at huge sizes
   var heroSize=fz(Math.min(72, Math.round(72*fontScale)));
   var heroBg=T.hasHdr?'#fff':'#0B0A1E';
   var heroTxt=T.hasHdr?'#18181B':'#fff'; var heroSub=T.hasHdr?'#71717A':'rgba(255,255,255,.45)';
   var heroLabel=T.hasHdr?c.teal:'rgba(255,255,255,.35)';
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+heroBg+';display:grid;grid-template-columns:1fr 360px;position:relative">'+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+heroBg+';display:grid;grid-template-columns:1fr 360px;position:relative">'+mkLogoOverlay(false)+''+
     (T.hasHdr?'':('<div aria-hidden="true" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.18) 0%,transparent 65%);top:-150px;left:-60px;pointer-events:none"></div>'))+
     hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;':'')+';padding:44px 48px;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1">'+
@@ -1487,7 +1492,7 @@ function sldRevenue(month,year,c,tmpl){
   var mr=getGM('revenue'); var hdr=T.hasHdr?mkHdr('',month,year,c,S.logo):'';
   var heroVal=notEmpty(mr.value)&&mr.value!=='\u2014'?mr.value:'\u2014';
   var revMs=S.metrics.filter(function(m){return['revenue','renewal','nps','avg','mom'].some(function(k){return m.label.toLowerCase().includes(k);});}).slice(0,3);
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+c.dark+';display:flex;flex-direction:column;position:relative">'+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+c.dark+';display:flex;flex-direction:column;position:relative">'+mkLogoOverlay(true)+''+
     '<div aria-hidden="true" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,'+c.teal+' 0%,'+c.purple+' 60%,transparent 100%)"></div>'+
     hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;':'')+';padding:30px 48px 18px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0">'+
@@ -1516,7 +1521,7 @@ function sldClaims(month,year,c,tmpl){
     return '<div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:#52525B">'+m.label+'</span><span style="font-family:'+f.h+';font-size:13px;font-weight:'+f.hw+';color:#18181B">'+m.value+'</span></div>'+
       '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:5px;background:rgba(0,0,0,.07);border-radius:3px;overflow:hidden"><div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:100%;width:'+sw(m.status)+'%;background:'+sc(m.status)+';border-radius:3px"></div></div></div>';
   }).join('');
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:380px 1fr;position:relative">'+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:380px 1fr;position:relative">'+mkLogoOverlay(false)+''+
     hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;background:#F7F7F8;':'')+';padding:28px 30px;display:flex;flex-direction:column;gap:12px;border-right:1px solid rgba(0,0,0,.07)">'+
       '<div style="font-family:DM Mono,monospace;font-size:9px;color:#71717A;letter-spacing:.12em;text-transform:uppercase">Operations</div>'+
@@ -1553,7 +1558,7 @@ function sldInsights(month,year,c,tmpl){
   var nums=[S.insights.length,S.actions.length,S.metrics.filter(function(m){return m.status==='on';}).length];
   var labs=['Findings','Actions','On Track'];
   if(T.hasHdr){
-    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;position:relative">'+hdr+
+    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;position:relative">'+mkLogoOverlay(true)+''+hdr+
       '<div style="margin-top:52px;padding:20px 36px 36px;display:flex;flex-direction:column;gap:14px">'+
         '<div style="font-family:'+f.h+';font-size:'+fz(20)+';font-weight:'+f.hw+';color:#18181B">Key Insights</div>'+
         '<div role="list" style="display:flex;flex-direction:column;gap:10px">'+insHtml+'</div></div>'+mkFt(7,11,false)+'</div>';
@@ -1587,7 +1592,7 @@ function sldActions(month,year,c,tmpl){
       '<div style="font-size:9px;font-weight:600;color:rgba(255,255,255,.22);font-family:DM Mono,monospace">Due: '+a.due+'</div></div>';
   }).join('');
   if(T.hasHdr){
-    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#F7F7F8;position:relative">'+hdr+
+    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#F7F7F8;position:relative">'+mkLogoOverlay(true)+''+hdr+
       '<div style="margin-top:52px;padding:20px 36px 32px;display:flex;flex-direction:column;gap:14px">'+
         '<div style="font-family:'+f.h+';font-size:'+fz(20)+';font-weight:'+f.hw+';color:#18181B">Next Steps</div>'+
         '<div role="list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'+actsHtml+'</div></div>'+mkFt(8,11,false)+'</div>';
@@ -1616,7 +1621,7 @@ function sldRisks(month,year,c,tmpl){
       '<div style="font-size:12px;color:#52525B;line-height:1.55;font-family:Playfair Display,serif;font-style:italic">At '+m.value+' vs target '+m.target+'. Delta: '+m.delta+'.</div>'+
       '<div style="font-family:DM Mono,monospace;font-size:10px;color:'+bc+';padding-top:9px;border-top:0.5px solid rgba(0,0,0,.07);margin-top:9px">\u2192 '+(hi?'Requires immediate attention':'Monitor closely')+'</div></div>';
   }).join('');
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+(T.hasHdr?'#F7F7F8':'#fff')+';position:relative">'+hdr+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+(T.hasHdr?'#F7F7F8':'#fff')+';position:relative">'+mkLogoOverlay(false)+''+hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;':'')+';padding:'+(T.hasHdr?'20px 36px 32px':'36px 48px')+';display:flex;flex-direction:column;gap:14px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-end">'+
         '<div><div style="font-family:DM Mono,monospace;font-size:9px;color:#71717A;letter-spacing:.12em;text-transform:uppercase">Risk Register</div>'+
@@ -1795,6 +1800,17 @@ function bfz(n){ return Math.round(n * bodyFont.size) + 'px'; }
 
 function getLogoDark()  { return S.logoDark  || S.logo || null; }
 function getLogoLight() { var l=S.logoLight||S.logo||null; return l&&l.length>10?l:null; }
+
+
+function mkLogoOverlay(isDark){
+  var l=isDark?(S.logoDark||S.logo||null):(S.logoLight||S.logo||null);
+  if(!l||l.length<10)return '';
+  return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;'+
+    'position:absolute;top:18px;left:28px;z-index:20;pointer-events:none">'+
+    '<img src="'+l+'" style="height:28px;max-width:110px;object-fit:contain;'+
+    'filter:'+(isDark?'brightness(10) opacity(.85)':'opacity(.85)')+'" alt="Logo">'+
+  '</div>';
+}
 
 function logoTagDk(alt){
   var l = getLogoDark();
@@ -2328,72 +2344,79 @@ async function generatePDF(){
 // ═══════ EXPORT & SLACK ═══════
 async function sendSlack(){
   var url=v('slack-url').trim();
-  if(!url){alert('Paste your Slack webhook URL.\n\nGet one:\nSlack \u2192 Apps \u2192 Incoming WebHooks \u2192 Add to Slack \u2192 choose channel \u2192 copy URL');return;}
-  if(!url.startsWith('https://hooks.slack.com/')){alert('That doesn\u2019t look right.\nSlack webhook URLs start with:\nhttps://hooks.slack.com/services/');return;}
+  if(!url){alert('Paste your Slack webhook URL.');return;}
+  if(!url.startsWith('https://hooks.slack.com/')){alert('Slack webhook URLs start with:\nhttps://hooks.slack.com/services/');return;}
 
   var btn=document.getElementById('slack-btn');
-  var status=document.getElementById('slack-status');
+  var statusEl=document.getElementById('slack-status');
   btn.disabled=true;btn.textContent='Sending\u2026';
 
   var co=v('s-company')||'MyCoverGenius';
   var month=v('s-month')||'May';
   var year=v('s-year')||'2026';
   var preparer=v('s-preparer')||'Product Team';
-  var customMsg=v('slack-msg')||'';
+  var customMsg=(v('slack-msg')||'').trim();
+  var mets=Array.isArray(S.metrics)?S.metrics:[];
 
-  var onN   =S.metrics.filter(function(m){return m.status==='on';}).length;
-  var offN  =S.metrics.filter(function(m){return m.status==='off';}).length;
-  var watchN=S.metrics.filter(function(m){return m.status==='watch';}).length;
+  var onN=mets.filter(function(m){return m.status==='on';}).length;
+  var offN=mets.filter(function(m){return m.status==='off';}).length;
+  var watchN=mets.filter(function(m){return m.status==='watch';}).length;
 
-  // Build metric rows — 2 columns
-  var metricLines=S.metrics.slice(0,12).map(function(m){
+  // Format each metric as a clean line
+  var metLines=mets.slice(0,16).map(function(m){
     var icon=m.status==='on'?'\u2705':m.status==='off'?'\ud83d\udea8':'\u26a0\ufe0f';
-    var delta=m.delta&&m.delta!=='-'?' _'+m.delta+'_':'';
-    return icon+' *'+m.label+':* '+m.value+delta;
+    var delta=(m.delta&&m.delta!=='-'&&m.delta!=='\u2014')?' \u2192 '+m.delta:'';
+    var target=(m.target&&m.target!=='-'&&m.target!=='\u2014')?' (target: '+m.target+')':'';
+    return icon+' *'+m.label+':*  '+m.value+delta+target;
   }).join('\n');
 
-  var blocks=[
-    {type:'header',text:{type:'plain_text',text:'\ud83d\udcca '+co+' Growth Report \u00b7 '+month+' '+year,emoji:true}},
-    {type:'context',elements:[{type:'mrkdwn',text:'Prepared by *'+preparer+'*'}]},
-    {type:'divider'}
-  ];
+  var blocks=[];
 
+  // Header
+  blocks.push({type:'header',text:{type:'plain_text',text:'\ud83d\udcca '+co+' Growth Metrics  \u00b7  '+month+' '+year,emoji:true}});
+
+  // Custom message (if any)
   if(customMsg){
     blocks.push({type:'section',text:{type:'mrkdwn',text:customMsg}});
-    blocks.push({type:'divider'});
   }
-
-  blocks.push({
-    type:'section',
-    fields:[
-      {type:'mrkdwn',text:'*\u2705 On Track*\n'+onN+' metric'+(onN===1?'':'s')},
-      {type:'mrkdwn',text:'*\u26a0\ufe0f Watch*\n'+watchN+' metric'+(watchN===1?'':'s')},
-      {type:'mrkdwn',text:'*\ud83d\udea8 Off Track*\n'+offN+' metric'+(offN===1?'':'s')}
-    ]
-  });
 
   blocks.push({type:'divider'});
 
-  if(metricLines){
-    blocks.push({type:'section',text:{type:'mrkdwn',text:metricLines}});
+  // Summary row
+  blocks.push({type:'section',fields:[
+    {type:'mrkdwn',text:'\u2705  *On Track*\n'+onN+' metric'+(onN===1?'':'s')},
+    {type:'mrkdwn',text:'\u26a0\ufe0f  *Watch*\n'+watchN+' metric'+(watchN===1?'':'s')},
+    {type:'mrkdwn',text:'\ud83d\udea8  *Off Track*\n'+offN+' metric'+(offN===1?'':'s')}
+  ]});
+
+  blocks.push({type:'divider'});
+
+  // Metrics list
+  if(metLines){
+    blocks.push({type:'section',text:{type:'mrkdwn',text:metLines}});
+    blocks.push({type:'divider'});
   }
 
-  blocks.push({
-    type:'context',
-    elements:[{type:'mrkdwn',text:'\ud83d\udce6 Generated by Growth Metrics Builder \u00b7 '+month+' '+year}]
-  });
+  // Footer context
+  blocks.push({type:'context',elements:[
+    {type:'mrkdwn',text:'Prepared by *'+preparer+'*  \u00b7  Generated with Growth Metrics Builder'}
+  ]});
 
-  var payload={username:'Growth Metrics \u00b7 '+co,icon_emoji:':bar_chart:',blocks:blocks};
+  var payload={
+    username:'Growth Metrics  \u00b7  '+co,
+    icon_emoji:':bar_chart:',
+    blocks:blocks
+  };
 
   try{
     fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain'},body:JSON.stringify(payload)});
     await new Promise(function(r){setTimeout(r,900);});
     btn.textContent='\u2713 Sent!';btn.style.background='#059669';
-    if(status){status.style.display='';status.textContent='\u2713 Posted to Slack \u2014 check your channel!';}
+    if(statusEl){statusEl.style.display='block';statusEl.style.color='#059669';statusEl.textContent='\u2713 Posted to Slack \u2014 check your channel.';}
     setTimeout(function(){btn.disabled=false;btn.textContent='\ud83d\udcac Send to Slack';btn.style.background='';},3500);
   }catch(e){
-    btn.disabled=false;btn.textContent='Failed \u2014 try again';
-    if(status){status.style.display='';status.textContent='Error: '+e.message;}
+    btn.disabled=false;btn.textContent='Failed';
+    if(statusEl){statusEl.style.display='block';statusEl.style.color='#DC2626';statusEl.textContent='Error: '+e.message;}
   }
 }
 
