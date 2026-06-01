@@ -1206,7 +1206,12 @@ function sldCover(co,month,year,tagline,preparer,c,tmpl,logo){
   // Dark version — always white text, for template 2 right dark panel
   var kpiHtmlDark=kpis.filter(function(m){return notEmpty(m.value);}).map(function(m){
     var posC='#34D399',negC='#FCA5A5',neuC='rgba(255,255,255,.3)';
-    var dColor=notEmpty(m.delta)?(m.delta.startsWith('+')?posC:m.delta.startsWith('-')?negC:neuC):neuC;
+    var dColor=neuC;
+    if(notEmpty(m.delta)){
+      var _d=String(m.delta);
+      if(_d.startsWith('+')||_d.includes('↑')||_d.includes('▲'))dColor=posC;
+      else if(_d.startsWith('-')||_d.includes('↓')||_d.includes('▼'))dColor=negC;
+    }
     return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:12px 0;border-bottom:0.5px solid rgba(255,255,255,.08)">'+
       '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;font-family:'+f.h+';font-size:'+fz(24)+';font-weight:'+f.hw+';color:#fff;line-height:1">'+m.value+'</div>'+
       '<div style="font-family:DM Mono,monospace;font-size:9px;color:rgba(255,255,255,.35);letter-spacing:.07em;text-transform:uppercase;margin-top:4px">'+m.label+'</div>'+
@@ -1335,6 +1340,8 @@ function sldGrowth(month,year,c,tmpl){
 }
 
 function sldCSAT(month,year,c,tmpl){
+  _curSlideKey='csat';
+  var safeMetrics=Array.isArray(S.metrics)?S.metrics:[];
   var T=getTmpl(tmpl,c); var f=gFC(); var sc=getSC(c);
   var hdr=T.hasHdr?mkHdr('',month,year,c,S.logo):'';
   var csatMs0=safeMetrics.filter(function(m){var l=m.label.toLowerCase();return l.includes('hospital')||l.includes('patient')||(l.includes('nps')&&!l.includes('claim'));});
