@@ -1200,7 +1200,7 @@ function getDC(t){return t===2?function(v){return v&&v.startsWith('+')?'#059669'
 function getSC(c){return function(st){return st==='on'?c.teal:st==='off'?'#EF4444':'#F59E0B';};}
 function getSL(){return function(st){return st==='on'?'On Track':st==='off'?'Off Track':'Watch';};}
 function getSW(){return function(st){return st==='on'?85:st==='off'?35:60;};}
-function getGM(kw){return S.metrics.find(function(m){return m.label.toLowerCase().includes(kw);})||{value:'\u2014',target:'\u2014',delta:'\u2014',status:'on',label:kw};}
+function getGM(kw){return S.metrics.find(function(m){return m.label.toLowerCase().includes(kw);})||{value:'',target:'',delta:'',status:'',label:kw};}
 function notEmpty(v){return v&&v!=='-'&&v!=='\u2014';}
 
 // ── getTmpl: ALL templates respect user's color choices ──
@@ -1242,12 +1242,15 @@ function mkCard(m,c,light){
   var finalBg = cfgBg || bg;
   if(cfgBS==='thin')   { extra='border:'+cfgBW+'px solid rgba(0,0,0,.12);'; bo='none'; }
   if(cfgBS==='colored'){ extra='border:'+cfgBW+'px solid '+cfgBC+';'; bo='none'; }
-  var valC=light?(m.status==='off'?'#DC2626':m.status==='watch'?'#B45309':'#18181B'):(m.status==='off'?'#FCA5A5':m.status==='watch'?'#FDE68A':'#fff');
+  var hasVal = notEmpty(m.value);
+  var valC = !hasVal ? (light?'#A1A1AA':'rgba(255,255,255,.25)') :
+    light?(m.status==='off'?'#DC2626':m.status==='watch'?'#B45309':'#18181B')
+         :(m.status==='off'?'#FCA5A5':m.status==='watch'?'#FDE68A':'#fff');
   var lC=light?'#71717A':'rgba(255,255,255,.45)'; var tC=light?'#A1A1AA':'rgba(255,255,255,.3)';
   return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+finalBg+';box-shadow:'+sh+';border-radius:'+rPx+';border:'+bo+';padding:18px 16px;'+extra+'">'+
     '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px">'+
       '<span style="font-family:'+f.m+';font-size:9px;font-weight:500;color:'+lC+';text-transform:uppercase;letter-spacing:.09em;line-height:1.3;max-width:82%">'+m.label+'</span>'+
-      '<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;width:8px;height:8px;border-radius:50%;background:'+statusC+';flex-shrink:0;margin-top:1px"></span>'+
+      (hasVal?('<span style="-webkit-print-color-adjust:exact;print-color-adjust:exact;width:8px;height:8px;border-radius:50%;background:'+statusC+';flex-shrink:0;margin-top:1px"></span>'):'<span style="width:8px;height:8px;flex-shrink:0"></span>')+
     '</div>'+
     '<div style="font-family:'+f.h+';font-size:'+fz(26)+';font-weight:'+f.hw+';color:'+valC+';line-height:1;letter-spacing:-.01em;margin-bottom:10px">'+m.value+'</div>'+
     '<div style="display:flex;align-items:center;gap:7px;flex-wrap:wrap">'+
@@ -1326,12 +1329,21 @@ function sldCover(co,month,year,tagline,preparer,c,tmpl,logo){
     var bdrC = isDark ? 'rgba(255,255,255,.07)' : 'rgba(0,0,0,.07)';
     var posC = isDark ? '#34D399' : '#059669';
     var negC = isDark ? '#FCA5A5' : '#DC2626';
-    var neuC = isDark ? 'rgba(255,255,255,.3)' : '#71717A';
-    var dColor = notEmpty(m.delta) ? (m.delta.startsWith('+') ? posC : m.delta.startsWith('-') ? negC : neuC) : neuC;
+    var neuC = isDark ? 'rgba(255,255,255,.35)' : '#71717A';
+    // Robust delta detection: +/-, up/down arrows, or numeric sign
+    var dColor = neuC;
+    if(notEmpty(m.delta)){
+      var d=m.delta.toString();
+      var isPos=d.startsWith('+')||d.includes('↑')||d.includes('▲');
+      var isNeg=d.startsWith('-')||d.includes('↓')||d.includes('▼');
+      dColor = isPos ? posC : isNeg ? negC : neuC;
+    }
+    var kHasVal=notEmpty(m.value);
+    if(!kHasVal)return '';
     return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;padding:12px 0;border-bottom:0.5px solid '+bdrC+'">'+
       '<div style="font-family:'+f.h+';font-size:'+fz(22)+';font-weight:'+f.hw+';color:'+valC+';line-height:1">'+m.value+'</div>'+
       '<div style="font-family:DM Mono,monospace;font-size:9px;color:'+lblC+';letter-spacing:.07em;text-transform:uppercase;margin-top:3px">'+m.label+'</div>'+
-      (notEmpty(m.delta)?('<div style="font-size:10px;font-weight:700;margin-top:2px;color:'+dColor+'">'+m.delta+'</div>'):'')+
+      (notEmpty(m.delta)?('<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;font-size:11px;font-weight:700;margin-top:3px;color:'+dColor+'">'+m.delta+'</div>'):'')+
     '</div>';
   }
 
@@ -1339,7 +1351,7 @@ function sldCover(co,month,year,tagline,preparer,c,tmpl,logo){
   if(tmpl===2){
     var kpiDark = kpis.map(function(m){return kpiRow(m,true);}).join('');
     return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:1fr 290px;position:relative">'+
-      mkLogoOverlay(false)+
+      mkLogoOverlay(false,T.hasHdr)+
       '<div style="display:flex;flex-direction:column">'+
         // Top gradient bar
         '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:4px;background:linear-gradient(90deg,'+c.teal+','+c.purple+')"></div>'+
@@ -1424,7 +1436,7 @@ function sldMetrics(month,year,c,tmpl){
       '<td style="padding:9px 10px;font-size:11px;font-weight:600;color:'+dc(m.delta)+';border-bottom:1px solid '+bdr+'">'+m.delta+'</td>'+
       '<td style="padding:9px 10px;border-bottom:1px solid '+bdr+'">'+sBadge(m.status,c.teal,T.isDark)+'</td></tr>';
   }).join('');
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+T.bg+';padding:40px 48px;display:flex;flex-direction:column;gap:14px;position:relative">'+mkLogoOverlay(true)+''+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+T.bg+';padding:40px 48px;display:flex;flex-direction:column;gap:14px;position:relative">'+mkLogoOverlay(true,T.hasHdr)+''+
     hdr+'<div style="'+mt+'display:flex;justify-content:space-between;align-items:flex-end">'+
       '<div><div style="font-family:DM Mono,monospace;font-size:9px;color:'+T.monoC+';letter-spacing:.12em;text-transform:uppercase">Metrics Dashboard</div>'+
         '<div style="font-family:'+f.h+';font-size:'+fz(20)+';font-weight:'+f.hw+';color:'+T.txt1+';margin-top:5px">'+month+' '+year+' \u2014 All KPIs</div></div>'+
@@ -1453,7 +1465,7 @@ function sldGrowth(month,year,c,tmpl){
   }).join('');
   if(T.hasHdr){
     var gMs=S.metrics.filter(function(m){return['nsm','activation','policies'].some(function(k){return m.label.toLowerCase().includes(k);});});
-    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:260px 1fr;position:relative">'+mkLogoOverlay(true)+''+hdr+
+    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:260px 1fr;position:relative">'+mkLogoOverlay(true,T.hasHdr)+''+hdr+
       '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+c.teal+';margin-top:52px;padding:32px 28px;display:flex;flex-direction:column;justify-content:space-between">'+
         '<div style="font-size:10px;font-weight:700;color:rgba(255,255,255,.6);letter-spacing:.12em;text-transform:uppercase;font-family:DM Mono,monospace">Policy Growth</div>'+
         '<div><div style="font-family:'+f.h+';font-size:'+fz(60)+';font-weight:'+f.hw+';color:#fff;line-height:.85;letter-spacing:-.04em">'+mp.value+'</div>'+
@@ -1492,13 +1504,13 @@ function sldCSAT(month,year,c,tmpl){
   if((!mc.value||mc.value==='—'||mc.value==='-')&&csatMs0.length)mc=csatMs0[0];
   var hdr=T.hasHdr?mkHdr('',month,year,c,S.logo):'';
   var csatMs=csatMs0; // already computed above
-  var expCards=csatMs.map(function(m){return mkCard(m,c,T.hasHdr);}).join('');
+  var expCards=csatMs.filter(function(m){return notEmpty(m.value);}).map(function(m){return mkCard(m,c,T.hasHdr);}).join('');
   // FIXED: 72px max - prevents black box rendering bug at huge sizes
   var heroSize=fz(Math.min(72, Math.round(72*fontScale)));
   var heroBg=T.hasHdr?'#fff':'#0B0A1E';
   var heroTxt=T.hasHdr?'#18181B':'#fff'; var heroSub=T.hasHdr?'#71717A':'rgba(255,255,255,.45)';
   var heroLabel=T.hasHdr?c.teal:'rgba(255,255,255,.35)';
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+heroBg+';display:grid;grid-template-columns:1fr 360px;position:relative">'+mkLogoOverlay(false)+''+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+heroBg+';display:grid;grid-template-columns:1fr 360px;position:relative">'+mkLogoOverlay(false,T.hasHdr)+''+
     (T.hasHdr?'':('<div aria-hidden="true" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;position:absolute;width:500px;height:500px;border-radius:50%;background:radial-gradient(circle,rgba(124,58,237,.18) 0%,transparent 65%);top:-150px;left:-60px;pointer-events:none"></div>'))+
     hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;':'')+';padding:44px 48px;display:flex;flex-direction:column;justify-content:space-between;position:relative;z-index:1">'+
@@ -1526,7 +1538,7 @@ function sldRevenue(month,year,c,tmpl){
   var mr=getGM('revenue'); var hdr=T.hasHdr?mkHdr('',month,year,c,S.logo):'';
   var heroVal=notEmpty(mr.value)&&mr.value!=='\u2014'?mr.value:'\u2014';
   var revMs=S.metrics.filter(function(m){return['revenue','renewal','nps','avg','mom'].some(function(k){return m.label.toLowerCase().includes(k);});}).slice(0,3);
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+c.dark+';display:flex;flex-direction:column;position:relative">'+mkLogoOverlay(true)+''+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+c.dark+';display:flex;flex-direction:column;position:relative">'+mkLogoOverlay(true,T.hasHdr)+''+
     '<div aria-hidden="true" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,'+c.teal+' 0%,'+c.purple+' 60%,transparent 100%)"></div>'+
     hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;':'')+';padding:30px 48px 18px;display:flex;justify-content:space-between;align-items:flex-end;border-bottom:0.5px solid rgba(255,255,255,.07);flex-shrink:0">'+
@@ -1555,7 +1567,7 @@ function sldClaims(month,year,c,tmpl){
     return '<div><div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="font-size:12px;color:#52525B">'+m.label+'</span><span style="font-family:'+f.h+';font-size:13px;font-weight:'+f.hw+';color:#18181B">'+m.value+'</span></div>'+
       '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:5px;background:rgba(0,0,0,.07);border-radius:3px;overflow:hidden"><div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;height:100%;width:'+sw(m.status)+'%;background:'+sc(m.status)+';border-radius:3px"></div></div></div>';
   }).join('');
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:380px 1fr;position:relative">'+mkLogoOverlay(false)+''+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;display:grid;grid-template-columns:380px 1fr;position:relative">'+mkLogoOverlay(false,T.hasHdr)+''+
     hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;background:#F7F7F8;':'')+';padding:28px 30px;display:flex;flex-direction:column;gap:12px;border-right:1px solid rgba(0,0,0,.07)">'+
       '<div style="font-family:DM Mono,monospace;font-size:9px;color:#71717A;letter-spacing:.12em;text-transform:uppercase">Operations</div>'+
@@ -1592,7 +1604,7 @@ function sldInsights(month,year,c,tmpl){
   var nums=[S.insights.length,S.actions.length,S.metrics.filter(function(m){return m.status==='on';}).length];
   var labs=['Findings','Actions','On Track'];
   if(T.hasHdr){
-    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;position:relative">'+mkLogoOverlay(true)+''+hdr+
+    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#fff;position:relative">'+mkLogoOverlay(true,T.hasHdr)+''+hdr+
       '<div style="margin-top:52px;padding:20px 36px 36px;display:flex;flex-direction:column;gap:14px">'+
         '<div style="font-family:'+f.h+';font-size:'+fz(20)+';font-weight:'+f.hw+';color:#18181B">Key Insights</div>'+
         '<div role="list" style="display:flex;flex-direction:column;gap:10px">'+insHtml+'</div></div>'+mkFt(7,11,false)+'</div>';
@@ -1626,7 +1638,7 @@ function sldActions(month,year,c,tmpl){
       '<div style="font-size:9px;font-weight:600;color:rgba(255,255,255,.22);font-family:DM Mono,monospace">Due: '+a.due+'</div></div>';
   }).join('');
   if(T.hasHdr){
-    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#F7F7F8;position:relative">'+mkLogoOverlay(true)+''+hdr+
+    return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:#F7F7F8;position:relative">'+mkLogoOverlay(true,T.hasHdr)+''+hdr+
       '<div style="margin-top:52px;padding:20px 36px 32px;display:flex;flex-direction:column;gap:14px">'+
         '<div style="font-family:'+f.h+';font-size:'+fz(20)+';font-weight:'+f.hw+';color:#18181B">Next Steps</div>'+
         '<div role="list" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">'+actsHtml+'</div></div>'+mkFt(8,11,false)+'</div>';
@@ -1655,7 +1667,7 @@ function sldRisks(month,year,c,tmpl){
       '<div style="font-size:12px;color:#52525B;line-height:1.55;font-family:Playfair Display,serif;font-style:italic">At '+m.value+' vs target '+m.target+'. Delta: '+m.delta+'.</div>'+
       '<div style="font-family:DM Mono,monospace;font-size:10px;color:'+bc+';padding-top:9px;border-top:0.5px solid rgba(0,0,0,.07);margin-top:9px">\u2192 '+(hi?'Requires immediate attention':'Monitor closely')+'</div></div>';
   }).join('');
-  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+(T.hasHdr?'#F7F7F8':'#fff')+';position:relative">'+mkLogoOverlay(false)+''+hdr+
+  return '<div class="slide" style="-webkit-print-color-adjust:exact;print-color-adjust:exact;background:'+(T.hasHdr?'#F7F7F8':'#fff')+';position:relative">'+mkLogoOverlay(false,T.hasHdr)+''+hdr+
     '<div style="'+(T.hasHdr?'margin-top:52px;':'')+';padding:'+(T.hasHdr?'20px 36px 32px':'36px 48px')+';display:flex;flex-direction:column;gap:14px">'+
       '<div style="display:flex;justify-content:space-between;align-items:flex-end">'+
         '<div><div style="font-family:DM Mono,monospace;font-size:9px;color:#71717A;letter-spacing:.12em;text-transform:uppercase">Risk Register</div>'+
@@ -1836,13 +1848,15 @@ function getLogoDark()  { return S.logoDark  || S.logo || null; }
 function getLogoLight() { var l=S.logoLight||S.logo||null; return l&&l.length>10?l:null; }
 
 
-function mkLogoOverlay(isDark){
+function mkLogoOverlay(isDark, hasHdr){
+  // If template has a header bar, logo already appears there — skip overlay
+  if(hasHdr) return '';
   var l=isDark?(S.logoDark||S.logo||null):(S.logoLight||S.logo||null);
   if(!l||l.length<10)return '';
   return '<div style="-webkit-print-color-adjust:exact;print-color-adjust:exact;'+
-    'position:absolute;top:18px;left:28px;z-index:20;pointer-events:none">'+
-    '<img src="'+l+'" style="height:28px;max-width:110px;object-fit:contain;'+
-    'filter:'+(isDark?'brightness(10) opacity(.85)':'opacity(.85)')+'" alt="Logo">'+
+    'position:absolute;top:16px;left:28px;z-index:20;pointer-events:none">'+
+    '<img src="'+l+'" style="height:26px;max-width:100px;object-fit:contain;'+
+    'filter:'+(isDark?'brightness(10) opacity(.82)':'opacity(.82)')+'" alt="Logo">'+
   '</div>';
 }
 
@@ -2397,7 +2411,7 @@ async function sendSlack(){
   var watchN=mets.filter(function(m){return m.status==='watch';}).length;
 
   // Format each metric as a clean line
-  var metLines=mets.slice(0,16).map(function(m){
+  var metLines=mets.filter(function(m){return notEmpty(m.value);}).slice(0,16).map(function(m){
     var icon=m.status==='on'?'\u2705':m.status==='off'?'\ud83d\udea8':'\u26a0\ufe0f';
     var delta=(m.delta&&m.delta!=='-'&&m.delta!=='\u2014')?' \u2192 '+m.delta:'';
     var target=(m.target&&m.target!=='-'&&m.target!=='\u2014')?' (target: '+m.target+')':'';
